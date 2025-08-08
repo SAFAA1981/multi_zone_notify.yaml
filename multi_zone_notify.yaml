@@ -1,0 +1,82 @@
+blueprint:
+  name: Multi-Zone Entry/Exit Notification
+  description: >
+    Send notifications when a person enters or leaves one or more selected zones.
+  domain: automation
+  input:
+    people:
+      name: People to monitor
+      description: Select person entities to track
+      selector:
+        entity:
+          domain: person
+          multiple: true
+    zones:
+      name: Zones
+      description: Select zones to monitor
+      selector:
+        entity:
+          domain: zone
+          multiple: true
+    notify_device:
+      name: Notify Device
+      description: Device to send the notification to
+      selector:
+        device:
+          integration: mobile_app
+    message_enter:
+      name: Entry Message
+      description: Notification message when entering a zone
+      default: "{{ person }} entered {{ zone }}"
+      selector:
+        text:
+    message_exit:
+      name: Exit Message
+      description: Notification message when leaving a zone
+      default: "{{ person }} left {{ zone }}"
+      selector:
+        text:
+
+mode: queued
+max: 10
+
+trigger:
+  - platform: state
+    entity_id: !input people
+
+variables:
+  zones_list: !input zones
+  person_entity: "{{ trigger.entity_id }}"
+  person: "{{ state_attr(trigger.entity_id, 'friendly_name') }}"
+  from_state: "{{ trigger.from_state.state }}"
+  to_state: "{{ trigger.to_state.state }}"
+
+condition:
+  - condition: or
+    conditions:
+      - "{{ to_state in zones_list | map('entity_id') | list }}"
+      - "{{ from_state in zones_list | map('entity_id') | list }}"
+
+action:
+  - variables:
+      zone: >-
+        {% if to_state in zones_list | map('entity_id') | list %}
+          {{ state_attr(to_state, 'friendly_name') }}
+        {% else %}
+          {{ state_attr(from_state, 'friendly_name') }}
+        {% endif %}
+      is_enter: "{{ to_state in zones_list | map('entity_id') | list }}"
+
+  - device_id: !input notify_device
+    domain: mobile_app
+    type: notify
+    message: >-
+      {% if is_enter %}
+        {{ (message_enter | default('{person} entered {zone}'))
+          | replace('{person}', person)
+          | replace('{zone}', zone) }}
+      {% else %}
+        {{ (message_exit | default('{person} left {zone}'))
+          | replace('{person}', person)
+          | replace('{zone}', zone) }}
+      {% endif %}
