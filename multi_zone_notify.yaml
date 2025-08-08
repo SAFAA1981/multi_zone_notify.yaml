@@ -1,8 +1,7 @@
 blueprint:
-  name: Multi-Zone Entry/Exit Notification (Multi-Device)
+  name: Multi-Zone Entry/Exit Notification
   description: >
-    Send notifications when a person enters or leaves one or more selected zones,
-    notifying multiple devices at once.
+    Send notifications when a person enters or leaves one or more selected zones.
   domain: automation
   input:
     people:
@@ -19,23 +18,22 @@ blueprint:
         entity:
           domain: zone
           multiple: true
-    notify_devices:
-      name: Notify Devices
-      description: Devices to send the notification to
+    notify_device:
+      name: Notify Device
+      description: Device to send the notification to
       selector:
         device:
           integration: mobile_app
-          multiple: true
     message_enter:
       name: Entry Message
       description: Notification message when entering a zone
-      default: "{person} entered {zone}"
+      default: "{{ person }} entered {{ zone }}"
       selector:
         text:
     message_exit:
       name: Exit Message
       description: Notification message when leaving a zone
-      default: "{person} left {zone}"
+      default: "{{ person }} left {{ zone }}"
       selector:
         text:
 
@@ -69,19 +67,16 @@ action:
         {% endif %}
       is_enter: "{{ to_state in zones_list | map('entity_id') | list }}"
 
-  - repeat:
-      for_each: !input notify_devices
-      sequence:
-        - device_id: "{{ repeat.item }}"
-          domain: mobile_app
-          type: notify
-          message: >-
-            {% if is_enter %}
-              {{ (message_enter | default('{person} entered {zone}'))
-                | replace('{person}', person)
-                | replace('{zone}', zone) }}
-            {% else %}
-              {{ (message_exit | default('{person} left {zone}'))
-                | replace('{person}', person)
-                | replace('{zone}', zone) }}
-            {% endif %}
+  - device_id: !input notify_device
+    domain: mobile_app
+    type: notify
+    message: >-
+      {% if is_enter %}
+        {{ (message_enter | default('{person} entered {zone}'))
+          | replace('{person}', person)
+          | replace('{zone}', zone) }}
+      {% else %}
+        {{ (message_exit | default('{person} left {zone}'))
+          | replace('{person}', person)
+          | replace('{zone}', zone) }}
+      {% endif %}
